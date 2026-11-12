@@ -2,7 +2,8 @@
 
 A cozy crochet companion for your phone, made for amigurumi lovers.
 
-- **Counters**: big tap-friendly counters for rounds and stitches, with optional goals
+- **Home**: a friendly landing page with a time-of-day greeting, cozy and playful messages, and every work in progress at a glance
+- **Counters**: big tap-friendly counters for rounds and stitches, with optional goals. Every project has its own counters, and there's a quick counter on Home
 - **Learn**: how-to guides (magic ring, increases, invisible decrease, stuffing, safety eyes and more) plus an abbreviations cheat sheet with US and UK names
 - **Projects**: a library with photos, pattern notes (yarn, hook size, source) and a round-by-round checklist
 - **Yarn stash**: track what you have, by color and number of skeins
@@ -112,7 +113,8 @@ Photos are shrunk to about 1200 pixels on the long side so they stay small.
 - **Colors**: edit the `:root` block at the top of `styles.css`.
 - **How-to guides**: edit the `GUIDES` list in `app.js`. Each guide has a title, a category, steps and a tip.
 - **Abbreviations**: edit the `ABBR` and `USUK` lists in `app.js`.
-- **After you change any file**: if the app doesn't show the change on the phone, close it fully and open it again. If it is still old, change `CACHE = 'little-loops-v1'` in `sw.js` to `v2` (then `v3`, and so on) and push again.
+- **Welcome messages and cheers**: edit the `HOME_LINES`, `CHEERS` and `FINISH_CHEERS` lists in `app.js`.
+- **After you change any file**: if the app doesn't show the change on the phone, close it fully and open it again. If it is still old, change the version in `CACHE = 'little-loops-v3'` in `sw.js` to `v4` (then `v5`, and so on) and push again.
 
 Make small changes and test after each one. Commit every time something works (`git add .` then `git commit -m "what you changed"`), so you can always roll back.
 

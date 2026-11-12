@@ -2,7 +2,7 @@
 // Strategy: serve from the cache right away, and quietly refresh the cache
 // in the background so updates show up the next time the app is opened.
 
-const CACHE = 'little-loops-v1';
+const CACHE = 'little-loops-v3';
 const FILES = [
   './',
   './index.html',

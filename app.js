@@ -3,7 +3,7 @@
    (in IndexedDB), so it works offline and nothing is sent anywhere.
 
    Sections of this file:
-   1. Helpers            5. Counters
+   1. Helpers            5. Home and counters
    2. Saving data        6. Learn (guides + abbreviations)
    3. Screen basics      7. Projects
    4. Pictures (icons)   8. Yarn, settings and backup, startup
@@ -55,12 +55,14 @@
   const dbSet = (key, value) => dbRun('readwrite', (s) => s.put(value, key));
   const dbDel = (key) => dbRun('readwrite', (s) => s.delete(key));
 
+  const starterCounters = () => [
+    { id: uid(), name: 'Round', value: 0, goal: null },
+    { id: uid(), name: 'Stitch', value: 0, goal: null },
+  ];
+
   const defaultState = () => ({
     version: 1,
-    counters: [
-      { id: uid(), name: 'Round', value: 0, goal: null },
-      { id: uid(), name: 'Stitch', value: 0, goal: null },
-    ],
+    counters: [{ id: uid(), name: 'Quick count', value: 0, goal: null }],
     projects: [],
     yarn: [],
     lastBackup: null,
@@ -68,6 +70,8 @@
     firstDataAt: 0,
     hideInstallTip: false,
     keepAwake: false,
+    name: '',
+    nameSkipped: false,
   });
 
   function normalize(s) {
@@ -80,6 +84,8 @@
       p.photos = Array.isArray(p.photos) ? p.photos : [];
       p.rounds = Array.isArray(p.rounds) ? p.rounds : [];
       p.status = p.status || 'idea';
+      p.counters = Array.isArray(p.counters) ? p.counters : starterCounters();
+      p.updated = p.updated || p.created || 0;
     });
     return s;
   }
@@ -154,7 +160,7 @@
   /* ================================================================
      3. Screen basics: tabs, sheets, toasts
      ================================================================ */
-  let tab = 'count';
+  let tab = 'home';
   let lastFocus = null;
   let sheetResolve = null;
   let sheetCtx = {};
@@ -219,7 +225,7 @@
     window.scrollTo(0, 0);
   }
 
-  const views = { count: renderCount, learn: renderLearn, projects: renderProjects, yarn: renderYarn };
+  const views = { home: renderHome, learn: renderLearn, projects: renderProjects, yarn: renderYarn };
   function render() {
     const view = $('#view');
     views[tab](view);
@@ -258,9 +264,9 @@
   /* ================================================================
      5. Counters
      ================================================================ */
-  function counterHTML(c) {
+  function counterHTML(c, scope = 'quick') {
     const done = c.goal && c.value >= c.goal;
-    return `<article class="card stitched counter${done ? ' done' : ''}" data-id="${c.id}">
+    return `<article class="card stitched counter${done ? ' done' : ''}" data-id="${c.id}" data-scope="${scope}">
       <div class="c-head">
         <input class="c-name" value="${esc(c.name)}" maxlength="30" aria-label="Counter name" data-field="counter-name">
         <button class="icon-btn" data-act="counter-more" aria-label="Options for ${esc(c.name)}">&#8943;</button>
@@ -282,40 +288,160 @@
       <button class="btn small" data-act="hide-install-tip">Got it</button></div>`;
   }
 
-  function renderCount(v) {
-    const canWake = 'wakeLock' in navigator;
-    v.innerHTML = `${installTipHTML()}
-      <div class="row-head"><h2>Counters</h2></div>
-      ${state.counters.length
-        ? state.counters.map(counterHTML).join('')
-        : `<div class="empty">${BERRY}<p>No counters yet. Add one to start counting rounds or stitches.</p></div>`}
-      <button class="btn block" data-act="add-counter">Add a counter</button>
-      ${canWake ? `<label class="toggle" style="margin-top:14px"><span>Keep screen on while counting</span><input type="checkbox" data-act="keep-awake" ${state.keepAwake ? 'checked' : ''}></label>` : ''}
-      <p class="hint" style="margin-top:14px">For amigurumi, use one counter for rounds and one for the stitches in the current round. Tap the dots on a counter to set a goal.</p>`;
+  const HOME_LINES = [
+    "Kettle's on and the hook's ready.",
+    "Let's get hooked!",
+    "Wherever you left off, it's waiting for you.",
+    'Time to get loopy.',
+    'Soft yarn, slow stitches, good day.',
+    'Ready to make something adorable?',
+    'No rush. Every stitch counts.',
+    'Yarn you glad to be here?',
+    'Cozy corner, comfy chair, lovely yarn.',
+    "Stitch happens, and that's okay.",
+    "Let's make some magic (ring).",
+    "Nothing's unraveling today.",
+  ];
+  const CHEERS = [
+    "You're on a roll!",
+    'Another round, nailed it.',
+    'Look at you go!',
+    'Stitch-tastic!',
+    'Round complete. Berry nice!',
+    'Tiny stitches, big progress.',
+    'Hook, line and stitcher!',
+    'That one was a keeper.',
+    'Adorable progress.',
+    'Keep looping, you got this.',
+  ];
+  const FINISH_CHEERS = [
+    'Finished! Time for a happy dance.',
+    'One more cutie off the hook!',
+    'Done and darling. Congratulations!',
+    'Look what you made!',
+  ];
+  const pick = (list) => list[Math.floor(Math.random() * list.length)];
+  const cheer = () => toast(pick(CHEERS));
+
+  let homeLine = Math.floor(Math.random() * HOME_LINES.length);
+  let heroIntro = true;
+
+  const HERO_BALL =
+    '<svg class="hero-ball" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="22" r="14" fill="#c23b4a"/>' +
+    '<path d="M8 18c8 3 16 3 24 0M7 25c9 3 17 3 26 0M13 10c4 8 4 16 0 24M24 9c-4 8-4 17 0 25" fill="none" stroke="#fbf6ea" stroke-width="1.6" stroke-linecap="round" opacity=".85"/>' +
+    '<path d="M20 8c-1-4 2-6 6-6-1 4-3 6-6 6z" fill="#a9c1a5"/><path d="M20 8c1-3-1-5-5-5 0 3 2 5 5 5z" fill="#7fa585"/></svg>';
+
+  function helloText() {
+    const h = new Date().getHours();
+    const n = state.name;
+    if (h < 5 || h >= 22) return n ? `Still up, ${n}?` : 'Still up, night owl?';
+    const part = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+    return `${part}, ${n || 'crafter'}!`;
   }
 
+  function nameCardHTML() {
+    if (state.name || state.nameSkipped) return '';
+    return `<form class="tip pink namecard" data-form="name">
+      <p><strong>Welcome! What should I call you?</strong> I'll use it to say hello.</p>
+      <div class="nrow"><input type="text" name="name" maxlength="30" placeholder="Your name" aria-label="Your name" autocomplete="given-name"><button class="btn primary" type="submit">Save</button></div>
+      <button class="btn small" type="button" data-act="skip-name">Skip for now</button>
+    </form>`;
+  }
+
+  function wipCardHTML(p) {
+    const done = p.rounds.filter((r) => r.done).length;
+    const pct = p.rounds.length ? Math.round((done / p.rounds.length) * 100) : 0;
+    const cover = p.photos[0] ? `<img data-photo="${p.photos[0]}" alt="">` : BERRY;
+    const counts = p.counters.map((c) => `${esc(c.name)} ${c.value}`).join(', ');
+    return `<button class="wip" data-act="open-project" data-id="${p.id}">
+      <div class="cover">${cover}</div>
+      <span class="wip-main">
+        <span class="pname">${esc(p.name || 'Untitled project')}</span>
+        ${counts ? `<span class="wip-counts">${counts}</span>` : ''}
+        ${p.rounds.length ? `<span class="progress mini" role="img" aria-label="${done} of ${p.rounds.length} rounds done"><i style="width:${pct}%"></i></span>` : ''}
+      </span>
+      <span class="chev" aria-hidden="true">&rsaquo;</span>
+    </button>`;
+  }
+
+  function tipCardHTML() {
+    const g = GUIDES[Math.floor(Date.now() / DAY) % GUIDES.length];
+    return `<section class="card tipcard"><h3>${esc(g.title)}</h3><p>${esc(g.tip)}</p>
+      <button class="btn small" data-act="open-guide" data-id="${g.id}">Read the guide</button></section>`;
+  }
+
+  function renderHome(v) {
+    const wips = state.projects.filter((p) => p.status === 'making').sort((a, b) => (b.updated || 0) - (a.updated || 0));
+    const canWake = 'wakeLock' in navigator;
+    const ball = HERO_BALL.replace('class="hero-ball"', `class="hero-ball${heroIntro ? ' intro' : ''}"`);
+    heroIntro = false;
+    v.innerHTML = `${installTipHTML()}
+      <section class="hero stitched">
+        <div class="hero-text">
+          <h2 class="hello">${esc(helloText())}</h2>
+          <button class="line" data-act="new-line" aria-label="Show another message">${esc(HOME_LINES[homeLine])}</button>
+        </div>
+        ${ball}
+      </section>
+      ${nameCardHTML()}
+      <div class="row-head"><h2>On the hook</h2><button class="btn primary small" data-act="new-project" data-status="making">Start a WIP</button></div>
+      ${wips.length
+        ? `<p class="summary">${wips.length} ${wips.length === 1 ? 'project' : 'projects'} in progress. Tap one to keep going.</p>${wips.map(wipCardHTML).join('')}`
+        : `<div class="empty">${BERRY}<p>Nothing on the hook right now. Start a project and it will show up here.</p><button class="btn primary" data-act="new-project" data-status="making">Start a project</button></div>`}
+      ${tipCardHTML()}
+      <h2 class="sec">Quick counter</h2>
+      ${state.counters.map((c) => counterHTML(c, 'quick')).join('')}
+      <button class="btn block" data-act="add-counter" data-scope="quick">Add a counter</button>
+      ${canWake ? `<label class="toggle" style="margin-top:14px"><span>Keep screen on while counting</span><input type="checkbox" data-act="keep-awake" ${state.keepAwake ? 'checked' : ''}></label>` : ''}
+      <p class="hint" style="margin-top:14px">Quick counters aren't tied to a project. To count rounds for one WIP, open it and use its own counters.</p>
+      ${backupBannerHTML()}`;
+  }
+
+  const curCounters = (scope) => {
+    if (scope === 'quick') return state.counters;
+    const p = curProject();
+    return p ? p.counters : [];
+  };
   function findCounter(el) {
     const card = el.closest('.counter');
-    return card ? state.counters.find((c) => c.id === card.dataset.id) : null;
+    if (!card) return null;
+    return curCounters(card.dataset.scope).find((c) => c.id === card.dataset.id) || null;
   }
   function refreshCounter(card, c) {
     const wasDone = card.classList.contains('done');
     const isDone = !!(c.goal && c.value >= c.goal);
     if (wasDone !== isDone) {
-      card.outerHTML = counterHTML(c);
+      card.outerHTML = counterHTML(c, card.dataset.scope);
     } else {
       $('.n', card).textContent = c.value;
     }
   }
   function bump(el, delta) {
+    const card = el.closest('.counter');
     const c = findCounter(el);
     if (!c) return;
     const next = Math.max(0, c.value + delta);
     if (next === c.value) return;
+    const wasDone = !!(c.goal && c.value >= c.goal);
     c.value = next;
     if (navigator.vibrate) navigator.vibrate(8);
-    refreshCounter(el.closest('.counter'), c);
+    if (card.dataset.scope !== 'quick') {
+      const p = curProject();
+      if (p) p.updated = Date.now();
+    }
+    refreshCounter(card, c);
+    if (!wasDone && c.goal && next >= c.goal) cheer();
     save();
+  }
+  function pcountersHTML(p) {
+    return p.counters.map((c) => counterHTML(c, 'project')).join('') +
+      '<button class="btn block" data-act="add-counter" data-scope="project">Add a counter</button>';
+  }
+  function refreshCounters(scope) {
+    if (scope === 'quick') { render(); return; }
+    const p = curProject();
+    const box = $('#pcounters');
+    if (p && box) box.innerHTML = pcountersHTML(p);
   }
 
   /* ================================================================
@@ -625,8 +751,8 @@
       <span class="status ${p.status}">${statusLabel(p.status)}</span></button>`;
   }
 
-  function newProject() {
-    const p = { id: uid(), name: '', status: 'idea', yarn: '', hook: '', size: '', source: '', notes: '', photos: [], rounds: [], created: Date.now() };
+  function newProject(status) {
+    const p = { id: uid(), name: '', status: status || 'idea', yarn: '', hook: '', size: '', source: '', notes: '', photos: [], rounds: [], counters: starterCounters(), created: Date.now(), updated: Date.now() };
     state.projects.unshift(p);
     if (!state.firstDataAt) state.firstDataAt = Date.now();
     save();
@@ -657,6 +783,8 @@
       <div class="page-inner">
         <input class="title-input" data-pf="name" value="${esc(p.name)}" placeholder="Name this project" maxlength="60" aria-label="Project name">
         <label class="field"><span>Status</span><select data-pf="status">${STATUSES.map((s) => `<option value="${s[0]}" ${p.status === s[0] ? 'selected' : ''}>${s[1]}</option>`).join('')}</select></label>
+        <h3>Counters</h3>
+        <div id="pcounters">${pcountersHTML(p)}</div>
         <h3>Photos</h3>
         <div class="photos" id="photos">${photosHTML(p)}</div>
         <input type="file" id="photo-input" accept="image/*" multiple hidden>
@@ -789,6 +917,7 @@
   function settingsSheet() {
     const last = state.lastBackup ? `Last backup: ${fmtDate(state.lastBackup)}.` : 'You have not saved a backup yet.';
     openSheet(`<h2>Settings and backup</h2>
+      <form data-form="name"><label class="field"><span>Your name</span><input type="text" name="name" value="${esc(state.name)}" maxlength="30" placeholder="What should we call you?" autocomplete="given-name"></label><button class="btn block" type="submit">Save name</button></form>
       <p>Everything in Little Loops is stored on this phone only. A backup file lets you move to a new phone or recover after a reset.</p>
       <p><strong>${esc(last)}</strong></p>
       <button class="btn primary block" data-act="backup">Save a backup</button>
@@ -811,7 +940,7 @@
     state.lastBackup = Date.now();
     save();
     toast('Backup saved');
-    if (tab === 'projects' || tab === 'yarn') render();
+    if (tab === 'projects' || tab === 'yarn' || tab === 'home') render();
   }
   async function saveBackup() {
     let json;
@@ -899,18 +1028,20 @@
     // counters
     inc: (el) => bump(el, 1),
     dec: (el) => bump(el, -1),
-    'add-counter': () => {
-      state.counters.push({ id: uid(), name: 'Counter ' + (state.counters.length + 1), value: 0, goal: null });
+    'add-counter': (el) => {
+      const scope = el.dataset.scope || 'quick';
+      const list = curCounters(scope);
+      list.push({ id: uid(), name: 'Counter ' + (list.length + 1), value: 0, goal: null });
       save();
-      render();
-      const inputs = $$('.c-name');
+      refreshCounters(scope);
+      const inputs = $$(scope === 'quick' ? '#view .c-name' : '#page .c-name');
       const last = inputs[inputs.length - 1];
       if (last) { last.scrollIntoView({ block: 'center' }); last.select(); last.focus(); }
     },
     'counter-more': (el) => {
       const c = findCounter(el);
       if (!c) return;
-      sheetCtx = { counterId: c.id };
+      sheetCtx = { counterId: c.id, scope: el.closest('.counter').dataset.scope };
       openSheet(`<h2>${esc(c.name)}</h2>
         <form data-form="goal"><label class="field"><span>Goal (optional)</span><input type="number" name="goal" min="1" max="9999" inputmode="numeric" value="${c.goal || ''}" placeholder="Like 18 stitches"></label>
         <button class="btn primary block" type="submit">Save goal</button></form>
@@ -919,23 +1050,42 @@
         <button class="btn block" data-act="close-sheet">Close</button>`, 'Counter options');
     },
     'reset-counter': () => {
-      const c = state.counters.find((x) => x.id === sheetCtx.counterId);
+      const scope = sheetCtx.scope;
+      const c = curCounters(scope).find((x) => x.id === sheetCtx.counterId);
       if (!c) return;
       const prev = c.value;
       c.value = 0;
       save();
       closeSheet();
-      render();
-      toast(`${c.name} reset`, { label: 'Undo', fn: () => { c.value = prev; save(); render(); } });
+      refreshCounters(scope);
+      toast(`${c.name} reset`, { label: 'Undo', fn: () => { c.value = prev; save(); refreshCounters(scope); } });
     },
     'delete-counter': async () => {
-      const c = state.counters.find((x) => x.id === sheetCtx.counterId);
+      const scope = sheetCtx.scope;
+      const id = sheetCtx.counterId;
+      const c = curCounters(scope).find((x) => x.id === id);
       if (!c) return;
       const ok = await confirmSheet(`Delete ${c.name}?`, 'This counter and its number will be removed.', 'Delete counter');
       if (!ok) return;
-      state.counters = state.counters.filter((x) => x.id !== c.id);
+      const list = curCounters(scope);
+      const i = list.findIndex((x) => x.id === id);
+      if (i >= 0) list.splice(i, 1);
       save();
-      render();
+      refreshCounters(scope);
+    },
+    'new-line': () => {
+      homeLine = (homeLine + 1 + Math.floor(Math.random() * (HOME_LINES.length - 1))) % HOME_LINES.length;
+      const el = $('.line');
+      if (el) el.textContent = HOME_LINES[homeLine];
+    },
+    'skip-name': () => { state.nameSkipped = true; save(); render(); },
+    'open-guide': (el) => {
+      learnMode = 'guides';
+      learnCat = 'All';
+      learnQuery = '';
+      setTab('learn');
+      const d = $('#g-' + el.dataset.id);
+      if (d) { d.open = true; d.scrollIntoView({ block: 'start' }); }
     },
     'keep-awake': (el) => { state.keepAwake = el.checked; save(); applyWake(); },
     'hide-install-tip': () => { state.hideInstallTip = true; save(); render(); },
@@ -946,7 +1096,7 @@
 
     // projects
     'proj-filter': (el) => { projFilter = el.dataset.f; render(); },
-    'new-project': newProject,
+    'new-project': (el) => newProject(el.dataset.status),
     'open-project': (el) => openProject(el.dataset.id),
     'close-page': closePage,
     'delete-project': async () => {
@@ -1073,7 +1223,7 @@
     } else if (t.dataset.round) {
       const p = curProject();
       const r = p && p.rounds.find((x) => x.id === t.dataset.round);
-      if (r) { r.done = t.checked; save(); refreshRounds(); }
+      if (r) { const checked = t.checked; r.done = checked; p.updated = Date.now(); save(); refreshRounds(); if (checked) cheer(); }
     } else if (t.id === 'guide-q') {
       learnQuery = t.value;
       renderGuideList();
@@ -1090,7 +1240,7 @@
       if (file) restoreFromFile(file);
     } else if (t.dataset.pf === 'status') {
       const p = curProject();
-      if (p) { p.status = t.value; save(); }
+      if (p) { p.status = t.value; p.updated = Date.now(); save(); if (t.value === 'finished') toast(pick(FINISH_CHEERS)); }
     }
   });
 
@@ -1103,13 +1253,21 @@
     const kind = form.dataset.form;
 
     if (kind === 'goal') {
-      const c = state.counters.find((x) => x.id === sheetCtx.counterId);
+      const scope = sheetCtx.scope;
+      const c = curCounters(scope).find((x) => x.id === sheetCtx.counterId);
       if (!c) return;
       const n = parseInt(data.get('goal'), 10);
       c.goal = n > 0 ? n : null;
       save();
       closeSheet();
-      render();
+      refreshCounters(scope);
+    } else if (kind === 'name') {
+      state.name = String(data.get('name') || '').trim().slice(0, 30);
+      if (!state.name) state.nameSkipped = true;
+      save();
+      if ($('#sheet-root').classList.contains('open')) closeSheet(true);
+      if (tab === 'home') render();
+      if (state.name) toast(`Nice to meet you, ${state.name}!`);
     } else if (kind === 'add-round') {
       const p = curProject();
       const text = String(data.get('text') || '').trim();
