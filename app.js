@@ -72,6 +72,7 @@
     keepAwake: false,
     name: '',
     nameSkipped: false,
+    theme: 'auto',
   });
 
   function normalize(s) {
@@ -227,6 +228,7 @@
 
   const views = { home: renderHome, learn: renderLearn, projects: renderProjects, yarn: renderYarn };
   function render() {
+    applyTheme();
     const view = $('#view');
     views[tab](view);
     hydratePhotos(view);
@@ -239,11 +241,77 @@
   /* ================================================================
      4. Pictures (small inline icons)
      ================================================================ */
-  const BERRY =
-    '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 58C16 48 8 36 8 26c0-8 6-13 12-13 5 0 9 2 12 6 3-4 7-6 12-6 6 0 12 5 12 13 0 10-8 22-24 32z" fill="#c23b4a"/>' +
-    '<path d="M32 20c-5-1-9-5-10-11 5 0 9 3 10 7 1-4 5-7 10-7-1 6-5 10-10 11z" fill="#5b8266"/>' +
-    '<g fill="#fbf6ea"><ellipse cx="22" cy="30" rx="1.6" ry="2.4"/><ellipse cx="32" cy="28" rx="1.6" ry="2.4"/><ellipse cx="42" cy="30" rx="1.6" ry="2.4"/><ellipse cx="27" cy="38" rx="1.6" ry="2.4"/><ellipse cx="37" cy="38" rx="1.6" ry="2.4"/><ellipse cx="32" cy="46" rx="1.6" ry="2.4"/></g></svg>';
-  const BERRY_SMALL = BERRY.replace('<svg ', '<svg width="22" height="22" ');
+  /* Seasonal artwork. Shapes take their colors from the theme variables in styles.css,
+     so they recolor themselves. Each season has its own little motif for empty
+     screens, project covers and the "goal reached" note. */
+  const svgWrap = (inner) => `<svg viewBox="0 0 64 64" aria-hidden="true">${inner}</svg>`;
+  const MOTIFS = {
+    // pumpkin
+    autumn: svgWrap(
+      '<ellipse cx="20" cy="39" rx="14" ry="18" style="fill:var(--m1)"/><ellipse cx="44" cy="39" rx="14" ry="18" style="fill:var(--m1)"/>' +
+      '<ellipse cx="32" cy="39" rx="12" ry="20" style="fill:var(--m1)"/>' +
+      '<path d="M32 19c-6 8-6 32 0 40M32 19c6 8 6 32 0 40M20 22c-8 6-9 27 0 33M44 22c8 6 9 27 0 33" fill="none" style="stroke:var(--m3)" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>' +
+      '<path d="M29 20c0-6 1-9 3-10h4c1 3 1 7 0 10z" style="fill:var(--m2)"/><path d="M37 14c5-1 8 1 9 5" fill="none" style="stroke:var(--m2)" stroke-width="2.5" stroke-linecap="round"/>'),
+    // snowflake
+    winter: svgWrap(
+      ['0', '60', '120'].map((a) => `<path transform="rotate(${a} 32 32)" d="M32 6v52M25 13l7 7 7-7M25 51l7-7 7 7" fill="none" style="stroke:var(--m1)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`).join('') +
+      '<circle cx="32" cy="32" r="5" style="fill:var(--m1)"/>'),
+    // tulip
+    spring: svgWrap(
+      '<path d="M32 60V36" fill="none" style="stroke:var(--m2)" stroke-width="4" stroke-linecap="round"/>' +
+      '<path d="M32 52c-11 0-15-7-17-13 9 0 15 4 17 13z" style="fill:var(--m2)"/><path d="M32 52c11 0 15-7 17-13-9 0-15 4-17 13z" style="fill:var(--m2)"/>' +
+      '<path d="M17 12c-1 15 5 26 15 26s16-11 15-26c-5 3-10 2-15-3-5 5-10 6-15 3z" style="fill:var(--m1)"/>'),
+    // sun
+    summer: svgWrap(
+      '<circle cx="32" cy="32" r="12" style="fill:var(--m1)"/>' +
+      [0, 45, 90, 135, 180, 225, 270, 315].map((a) => `<path transform="rotate(${a} 32 32)" d="M32 6v8" fill="none" style="stroke:var(--m1)" stroke-width="4.5" stroke-linecap="round"/>`).join('') +
+      '<circle cx="28" cy="28" r="4" style="fill:var(--m3)" opacity=".7"/>'),
+  };
+  let ballCount = 0; // each ball needs its own clip id, because the header and the hero both draw one
+  const ballSVG = (cls) => {
+    const id = 'lc' + ++ballCount;
+    return `<svg class="${cls}" viewBox="0 0 40 40" aria-hidden="true"><defs><clipPath id="${id}"><circle cx="19" cy="22" r="13"/></clipPath></defs>` +
+      '<path d="M27 31c5 3 9 4 11 1" fill="none" style="stroke:var(--ball)" stroke-width="2.4" stroke-linecap="round"/>' +
+      '<circle cx="19" cy="22" r="13" style="fill:var(--ball)"/>' +
+      `<g clip-path="url(#${id})" fill="none" style="stroke:var(--ball-line)" stroke-width="1.5" stroke-linecap="round" opacity=".85">` +
+      '<path d="M3 14C13 15 22 21 32 35"/><path d="M2 21C11 22 19 28 27 41"/><path d="M8 5C17 9 27 15 36 23"/><path d="M33 9C24 13 14 21 9 35"/><path d="M38 18C29 22 21 29 17 41"/></g>' +
+      '<path d="M31 5L19 16" fill="none" style="stroke:var(--leaf-a)" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<path d="M31 5c1.500-1.800 3.800-1.200 3.600.800" fill="none" style="stroke:var(--leaf-a)" stroke-width="2.2" stroke-linecap="round"/></svg>';
+  };
+
+  /* The themes. "color" is the header color, used for the phone's status bar.
+     Add a holiday theme here and in styles.css and it shows up in Settings. */
+  const THEMES = {
+    autumn: { label: 'Autumn', color: '#4a2c1d', motif: MOTIFS.autumn },
+    winter: { label: 'Winter', color: '#25384a', motif: MOTIFS.winter },
+    spring: { label: 'Spring', color: '#53457a', motif: MOTIFS.spring },
+    summer: { label: 'Summer', color: '#17636b', motif: MOTIFS.summer },
+  };
+  // Meteorological seasons: Sep-Nov autumn, Dec-Feb winter, Mar-May spring, Jun-Aug summer.
+  const seasonOf = (d = new Date()) => {
+    const m = d.getMonth();
+    return m >= 8 && m <= 10 ? 'autumn' : m === 11 || m <= 1 ? 'winter' : m <= 4 ? 'spring' : 'summer';
+  };
+  const activeTheme = () => (THEMES[state.theme] ? state.theme : seasonOf());
+
+  let BERRY = MOTIFS.autumn; // name kept from the first version; it is the current season's motif
+  let BERRY_SMALL = BERRY;
+  let HERO_BALL = ballSVG('hero-ball');
+  let shownTheme = null;
+  function applyTheme() {
+    const key = activeTheme();
+    if (key === shownTheme) return false;
+    shownTheme = key;
+    document.documentElement.dataset.theme = key;
+    BERRY = THEMES[key].motif;
+    BERRY_SMALL = BERRY.replace('<svg ', '<svg width="22" height="22" ');
+    HERO_BALL = ballSVG('hero-ball');
+    const meta = $('meta[name="theme-color"]');
+    if (meta) meta.content = THEMES[key].color;
+    const logo = $('.brand .logo');
+    if (logo) logo.outerHTML = ballSVG('logo');
+    return true;
+  }
   const PLUS_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>';
 
   // Crochet chart symbols (US terms), drawn on a 48 x 48 grid.
@@ -307,7 +375,7 @@
     'Another round, nailed it.',
     'Look at you go!',
     'Stitch-tastic!',
-    'Round complete. Berry nice!',
+    'Round complete. Nice and snug!',
     'Tiny stitches, big progress.',
     'Hook, line and stitcher!',
     'That one was a keeper.',
@@ -323,13 +391,38 @@
   const pick = (list) => list[Math.floor(Math.random() * list.length)];
   const cheer = () => toast(pick(CHEERS));
 
-  let homeLine = Math.floor(Math.random() * HOME_LINES.length);
+  const SEASON_LINES = {
+    autumn: [
+      'Sweater weather is hook weather.',
+      'Leaves are falling, stitches are rising.',
+      'Warm drink, soft yarn, golden light.',
+      'Cozy season is officially in session.',
+      'Something warm is in the works.',
+      'Perfect weather for a blanket on your lap.',
+    ],
+    winter: [
+      'Frosty out there, cozy in here.',
+      'Hat, scarf, mittens. What is next?',
+      'Warm hands, warm yarn, warm heart.',
+      'Hot cocoa and a good pattern.',
+      'Snowed in? Perfect crochet time.',
+    ],
+    spring: [
+      'Fresh yarn, fresh start.',
+      'Everything is blooming, even your projects.',
+      'Spring into stitches!',
+      'A little sunshine and a lot of loops.',
+    ],
+    summer: [
+      'Sunny day, snuggly yarn.',
+      'Porch, iced tea and a project.',
+      'Cool cotton, easy stitches.',
+      'Summer is here, and so are the loops.',
+    ],
+  };
+  const homeLines = () => HOME_LINES.concat(SEASON_LINES[activeTheme()] || []);
+  let homeLine = -1; // -1 means "pick a seasonal one the first time"
   let heroIntro = true;
-
-  const HERO_BALL =
-    '<svg class="hero-ball" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="22" r="14" fill="#c23b4a"/>' +
-    '<path d="M8 18c8 3 16 3 24 0M7 25c9 3 17 3 26 0M13 10c4 8 4 16 0 24M24 9c-4 8-4 17 0 25" fill="none" stroke="#fbf6ea" stroke-width="1.6" stroke-linecap="round" opacity=".85"/>' +
-    '<path d="M20 8c-1-4 2-6 6-6-1 4-3 6-6 6z" fill="#a9c1a5"/><path d="M20 8c1-3-1-5-5-5 0 3 2 5 5 5z" fill="#7fa585"/></svg>';
 
   function helloText() {
     const h = new Date().getHours();
@@ -373,13 +466,15 @@
   function renderHome(v) {
     const wips = state.projects.filter((p) => p.status === 'making').sort((a, b) => (b.updated || 0) - (a.updated || 0));
     const canWake = 'wakeLock' in navigator;
+    const lines = homeLines();
+    if (homeLine < 0) homeLine = HOME_LINES.length + Math.floor(Math.random() * (lines.length - HOME_LINES.length || 1));
     const ball = HERO_BALL.replace('class="hero-ball"', `class="hero-ball${heroIntro ? ' intro' : ''}"`);
     heroIntro = false;
     v.innerHTML = `${installTipHTML()}
       <section class="hero stitched">
         <div class="hero-text">
           <h2 class="hello">${esc(helloText())}</h2>
-          <button class="line" data-act="new-line" aria-label="Show another message">${esc(HOME_LINES[homeLine])}</button>
+          <button class="line" data-act="new-line" aria-label="Show another message">${esc(lines[homeLine % lines.length])}</button>
         </div>
         ${ball}
       </section>
@@ -884,14 +979,14 @@
     const sub = [y.brand, y.weight, y.colorName].filter(Boolean).join(', ');
     return `<article class="card stitched yarn" data-id="${y.id}">
       <button class="ymain" data-act="edit-yarn" aria-label="Edit ${esc(y.name || 'yarn')}">
-        <span class="swatch" style="background:${esc(y.color || '#a9c1a5')}"></span>
+        <span class="swatch" style="background:${esc(y.color || '#cfae7e')}"></span>
         <span style="min-width:0"><span class="yname">${esc(y.name || 'Untitled yarn')}</span><span class="ysub">${esc(sub || 'No details yet')}</span></span>
       </button>
       <div class="qty"><button data-act="y-dec" aria-label="One less skein of ${esc(y.name || 'yarn')}">&minus;</button><b aria-live="polite">${Number(y.qty) || 0}</b><button data-act="y-inc" aria-label="One more skein of ${esc(y.name || 'yarn')}">+</button></div>
     </article>`;
   }
   function yarnSheet(id) {
-    const y = id ? state.yarn.find((x) => x.id === id) : { name: '', brand: '', weight: 'Worsted', colorName: '', color: '#c23b4a', qty: 1, notes: '' };
+    const y = id ? state.yarn.find((x) => x.id === id) : { name: '', brand: '', weight: 'Worsted', colorName: '', color: '#b4501c', qty: 1, notes: '' };
     if (!y) return;
     sheetCtx = { yarnId: id || null };
     openSheet(`<h2>${id ? 'Edit yarn' : 'Add yarn'}</h2>
@@ -903,7 +998,7 @@
         </div>
         <div class="two">
           <label class="field"><span>Color name</span><input type="text" name="colorName" value="${esc(y.colorName)}" maxlength="40"></label>
-          <label class="field"><span>Color swatch</span><input type="color" name="color" value="${esc(y.color || '#c23b4a')}"></label>
+          <label class="field"><span>Color swatch</span><input type="color" name="color" value="${esc(y.color || '#b4501c')}"></label>
         </div>
         <label class="field"><span>Skeins</span><input type="number" name="qty" value="${Number(y.qty) || 0}" min="0" max="999" inputmode="numeric"></label>
         <label class="field"><span>Notes</span><input type="text" name="notes" value="${esc(y.notes)}" placeholder="Where you bought it, dye lot"></label>
@@ -918,6 +1013,11 @@
     const last = state.lastBackup ? `Last backup: ${fmtDate(state.lastBackup)}.` : 'You have not saved a backup yet.';
     openSheet(`<h2>Settings and backup</h2>
       <form data-form="name"><label class="field"><span>Your name</span><input type="text" name="name" value="${esc(state.name)}" maxlength="30" placeholder="What should we call you?" autocomplete="given-name"></label><button class="btn block" type="submit">Save name</button></form>
+      <label class="field"><span>Season look</span><select data-theme-pick>
+        <option value="auto"${THEMES[state.theme] ? '' : ' selected'}>Automatic (follows the calendar)</option>
+        ${Object.entries(THEMES).map(([k, t]) => `<option value="${k}"${state.theme === k ? ' selected' : ''}>${t.label}</option>`).join('')}
+      </select></label>
+      <p class="hint" style="margin-top:-4px">Automatic switches with the seasons: autumn from September, winter from December, spring from March and summer from June.</p>
       <p>Everything in Little Loops is stored on this phone only. A backup file lets you move to a new phone or recover after a reset.</p>
       <p><strong>${esc(last)}</strong></p>
       <button class="btn primary block" data-act="backup">Save a backup</button>
@@ -1074,9 +1174,10 @@
       refreshCounters(scope);
     },
     'new-line': () => {
-      homeLine = (homeLine + 1 + Math.floor(Math.random() * (HOME_LINES.length - 1))) % HOME_LINES.length;
+      const lines = homeLines();
+      homeLine = (homeLine + 1 + Math.floor(Math.random() * (lines.length - 1))) % lines.length;
       const el = $('.line');
-      if (el) el.textContent = HOME_LINES[homeLine];
+      if (el) el.textContent = lines[homeLine];
     },
     'skip-name': () => { state.nameSkipped = true; save(); render(); },
     'open-guide': (el) => {
@@ -1238,6 +1339,10 @@
       const file = t.files && t.files[0];
       t.value = '';
       if (file) restoreFromFile(file);
+    } else if (t.dataset.themePick !== undefined) {
+      state.theme = t.value;
+      save();
+      if (applyTheme()) render();
     } else if (t.dataset.pf === 'status') {
       const p = curProject();
       if (p) { p.status = t.value; p.updated = Date.now(); save(); if (t.value === 'finished') toast(pick(FINISH_CHEERS)); }
@@ -1293,7 +1398,7 @@
         brand: String(data.get('brand') || '').trim(),
         weight: String(data.get('weight') || ''),
         colorName: String(data.get('colorName') || '').trim(),
-        color: String(data.get('color') || '#c23b4a'),
+        color: String(data.get('color') || '#b4501c'),
         qty: Math.max(0, parseInt(data.get('qty'), 10) || 0),
         notes: String(data.get('notes') || '').trim(),
       };
@@ -1321,7 +1426,7 @@
   });
 
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') applyWake();
+    if (document.visibilityState === 'visible') { applyWake(); if (applyTheme()) render(); }
     else flush();
   });
   window.addEventListener('pagehide', flush);

@@ -2,6 +2,7 @@
 
 A cozy crochet companion for your phone, made for amigurumi lovers.
 
+- **Seasonal look**: cozy autumn now, switching to winter, spring and summer on its own through the year
 - **Home**: a friendly landing page with a time-of-day greeting, cozy and playful messages, and every work in progress at a glance
 - **Counters**: big tap-friendly counters for rounds and stitches, with optional goals. Every project has its own counters, and there's a quick counter on Home
 - **Learn**: how-to guides (magic ring, increases, invisible decrease, stuffing, safety eyes and more) plus an abbreviations cheat sheet with US and UK names
@@ -19,7 +20,7 @@ Everything is stored on the phone itself. Nothing is uploaded anywhere, and ther
 | File | What it does |
 | --- | --- |
 | `index.html` | The page itself: header, bottom tabs, and empty spots the app fills in |
-| `styles.css` | The look: colors, fonts, spacing. The color palette is at the top, so you can retheme it by changing a few lines |
+| `styles.css` | The look: fonts, spacing and the seasonal color themes (one block per season at the top) |
 | `app.js` | The behavior: counters, guides, projects, yarn, saving, backup |
 | `manifest.webmanifest` | Tells the phone this is an installable app (name, icon, colors) |
 | `sw.js` | The "service worker" that lets the app open with no internet |
@@ -110,11 +111,12 @@ Photos are shrunk to about 1200 pixels on the long side so they stay small.
 
 ## Changing things
 
-- **Colors**: edit the `:root` block at the top of `styles.css`.
+- **Seasonal themes**: the app picks autumn (Sep to Nov), winter (Dec to Feb), spring (Mar to May) or summer (Jun to Aug) from the date. Each season is a block at the top of `styles.css` that starts with `[data-theme="autumn"]` and lists every color the app uses. Change a color there and the whole app follows. In the app, the gear icon has a **Season look** setting to lock one season.
+- **Add a holiday theme** (Thanksgiving, Christmas and so on): copy a season block in `styles.css`, rename it, for example `[data-theme="christmas"]`, and change the colors. Then add one line for it to `THEMES` in `app.js`, with a label, a header color and a motif (a small picture used on empty screens), and it shows up in Settings. To switch on by date automatically, edit `seasonOf` in `app.js`.
 - **How-to guides**: edit the `GUIDES` list in `app.js`. Each guide has a title, a category, steps and a tip.
 - **Abbreviations**: edit the `ABBR` and `USUK` lists in `app.js`.
 - **Welcome messages and cheers**: edit the `HOME_LINES`, `CHEERS` and `FINISH_CHEERS` lists in `app.js`.
-- **After you change any file**: if the app doesn't show the change on the phone, close it fully and open it again. If it is still old, change the version in `CACHE = 'little-loops-v3'` in `sw.js` to `v4` (then `v5`, and so on) and push again.
+- **After you change any file**: if the app doesn't show the change on the phone, close it fully and open it again. If it is still old, change the version in `CACHE = 'little-loops-v4'` in `sw.js` to `v5` (then `v6`, and so on) and push again.
 
 Make small changes and test after each one. Commit every time something works (`git add .` then `git commit -m "what you changed"`), so you can always roll back.
 
