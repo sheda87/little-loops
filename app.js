@@ -73,6 +73,7 @@
     name: '',
     nameSkipped: false,
     theme: 'auto',
+    animSpeed: 1,
   });
 
   function normalize(s) {
@@ -229,6 +230,7 @@
   const views = { home: renderHome, learn: renderLearn, projects: renderProjects, yarn: renderYarn };
   function render() {
     applyTheme();
+    if (tab !== 'learn') stopAnim();
     const view = $('#view');
     views[tab](view);
     hydratePhotos(view);
@@ -767,6 +769,7 @@
   let learnQuery = '';
 
   function renderLearn(v) {
+    stopAnim();
     v.innerHTML = `<div class="seg" role="group" aria-label="Learn sections">
         <button data-act="learn-mode" data-mode="guides" aria-pressed="${learnMode === 'guides'}">How-to guides</button>
         <button data-act="learn-mode" data-mode="abbr" aria-pressed="${learnMode === 'abbr'}">Abbreviations</button>
@@ -792,6 +795,7 @@
     renderGuideList();
   }
   function renderGuideList() {
+    stopAnim();
     const list = $('#guide-list');
     if (!list) return;
     const q = learnQuery.trim().toLowerCase();
@@ -802,9 +806,45 @@
     });
     list.innerHTML = items.length
       ? items.map((g) => `<details class="guide" id="g-${g.id}"><summary>${symSVG(g.sym)}<span><span class="g-title">${esc(g.title)}</span><span class="g-cat">${esc(g.cat)}</span></span></summary>
-          <div class="g-body"><ol>${g.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol><p class="g-tip"><strong>Tip:</strong> ${esc(g.tip)}</p></div></details>`).join('')
+          <div class="g-body">${window.LLAnim && LLAnim.has(g.id) ? `<div class="anim" data-anim="${g.id}"></div>` : ''}<ol>${g.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol><p class="g-tip"><strong>Tip:</strong> ${esc(g.tip)}</p></div></details>`).join('')
       : '<div class="empty"><p>No guides match that search. Try a shorter word, like "ring" or "stitch".</p></div>';
   }
+
+  /* ----- animated diagrams (diagrams.js) ----- */
+  let activeAnim = null;
+  function stopAnim() {
+    if (activeAnim) {
+      try { activeAnim.ctl.destroy(); } catch (err) { /* already gone */ }
+      activeAnim = null;
+    }
+  }
+  function startAnim(details) {
+    stopAnim();
+    const host = $('.anim', details);
+    const g = GUIDES.find((x) => 'g-' + x.id === details.id);
+    if (!host || !g || !window.LLAnim || !LLAnim.has(g.id)) return;
+    const lis = $$('ol li', details);
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const ctl = LLAnim.mount(host, g.id, {
+      steps: g.steps,
+      speed: state.animSpeed || 1,
+      autoplay: !reduce,
+      onSpeed: (v) => { state.animSpeed = v; save(); },
+      onStep: (step) => lis.forEach((li, i) => li.classList.toggle('now', i === step)),
+    });
+    if (ctl) activeAnim = { host, ctl };
+  }
+  // 'toggle' does not bubble, so listen while it travels down (capture).
+  document.addEventListener('toggle', (e) => {
+    const d = e.target;
+    if (!d || !d.matches || !d.matches('details.guide')) return;
+    if (d.open) {
+      $$('details.guide[open]').forEach((o) => { if (o !== d) o.open = false; });
+      startAnim(d);
+    } else if (activeAnim && d.contains(activeAnim.host)) {
+      stopAnim();
+    }
+  }, true);
 
   /* ================================================================
      7. Projects
