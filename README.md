@@ -5,7 +5,7 @@ A cozy crochet companion for your phone, made for amigurumi lovers.
 - **Seasonal look**: cozy autumn now, switching to winter, spring and summer on its own through the year
 - **Home**: a friendly landing page with a time-of-day greeting, cozy and playful messages, and every work in progress at a glance
 - **Counters**: big tap-friendly counters for rounds and stitches, with optional goals. Every project has its own counters, and there's a quick counter on Home
-- **Learn**: how-to guides (magic ring, increases, invisible decrease, stuffing, safety eyes and more) plus an abbreviations cheat sheet with US and UK names. The core stitches (chain, slip stitch, single, half double and double crochet, magic ring, increase, invisible decrease) have **animated diagrams** of the hook and yarn, with play/pause, step buttons and Normal, Slow and Slower speeds
+- **Learn**: how-to guides (magic ring, increases, invisible decrease, stuffing, safety eyes and more) plus an abbreviations cheat sheet with US and UK names. The core stitches (chain, slip stitch, single, half double and double crochet, magic ring, increase, invisible decrease) have **animated diagrams** of the hook and yarn, with a left hand holding the work and yarn, a right hand on the hook, play/pause, step buttons and Normal, Slow and Slower speeds
 - **Projects**: a library with photos, pattern notes (yarn, hook size, source) and a round-by-round checklist
 - **Yarn stash**: track what you have, by color and number of skeins
 - **Backup**: save everything to a file and restore it on any phone
@@ -115,10 +115,10 @@ Photos are shrunk to about 1200 pixels on the long side so they stay small.
 - **Seasonal themes**: the app picks autumn (Sep to Nov), winter (Dec to Feb), spring (Mar to May) or summer (Jun to Aug) from the date. Each season is a block at the top of `styles.css` that starts with `[data-theme="autumn"]` and lists every color the app uses. Change a color there and the whole app follows. In the app, the gear icon has a **Season look** setting to lock one season.
 - **Add a holiday theme** (Thanksgiving, Christmas and so on): copy a season block in `styles.css`, rename it, for example `[data-theme="christmas"]`, and change the colors. Then add one line for it to `THEMES` in `app.js`, with a label, a header color and a motif (a small picture used on empty screens), and it shows up in Settings. To switch on by date automatically, edit `seasonOf` in `app.js`.
 - **How-to guides**: edit the `GUIDES` list in `app.js`. Each guide has a title, a category, steps and a tip.
-- **Animated diagrams**: each scene in `SCENES` in `diagrams.js` is a list of poses (where the hook, loops and yarn are at each step). The player blends between poses. To add one, copy a scene, give it the same id as the guide in `GUIDES`, and the player appears automatically. Keep the number of poses equal to the guide's steps if you want the step highlighting to line up.
+- **Animated diagrams**: each scene in `SCENES` in `diagrams.js` is a list of poses (where the hook and each loop of the one continuous yarn are at each step). The hands use the `--skin` and `--skin-edge` colors at the top of `styles.css`. The player blends between poses. To add one, copy a scene, give it the same id as the guide in `GUIDES`, and the player appears automatically. Keep the number of poses equal to the guide's steps if you want the step highlighting to line up.
 - **Abbreviations**: edit the `ABBR` and `USUK` lists in `app.js`.
 - **Welcome messages and cheers**: edit the `HOME_LINES`, `CHEERS` and `FINISH_CHEERS` lists in `app.js`.
-- **After you change any file**: if the app doesn't show the change on the phone, close it fully and open it again. If it is still old, change the version in `CACHE = 'little-loops-v5'` in `sw.js` to `v6` (then `v7`, and so on) and push again.
+- **After you change any file**: if the app doesn't show the change on the phone, close it fully and open it again. If it is still old, change the version in `CACHE = 'little-loops-v6'` in `sw.js` to `v7` (then `v8`, and so on) and push again.
 
 Make small changes and test after each one. Commit every time something works (`git add .` then `git commit -m "what you changed"`), so you can always roll back.
 
