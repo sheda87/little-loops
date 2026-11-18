@@ -29,7 +29,7 @@
   const COLORS = {
     accent: 'var(--accent)', mid: 'var(--mid)', edge: 'var(--edge)', bar: 'var(--bar)',
     ink: 'var(--ink)', paper: 'var(--paper)', soft: 'var(--soft)', warm: 'var(--warm)', muted: 'var(--muted)',
-    skin: 'var(--skin)', skinEdge: 'var(--skin-edge)',
+    accentDark: 'var(--accent-dark)', skin: 'var(--skin)', skinEdge: 'var(--skin-edge)',
   };
 
   /* ---------------- layout of the picture ---------------- */
@@ -53,12 +53,12 @@
   const READY = { x: 168, y: 100, r: -16 };
   const NEXT = { x: 134, y: 102, r: -16 };
   const INS = insAt(14, TX, RY - 3, -38);
-  const A0 = [TX - 36, RY - 4]; // where the yarn is anchored: the last finished stitch
+  const A0 = [TX - 36, RY - 3]; // where the yarn is anchored: the last finished stitch
   const BASE = [TX, RY - 4]; // the base of the stitch being made
   const XS = [28, 64, 100, 136, 172, 208, 244, 280, 316]; // tops of the previous row
 
   /* ---------------- loop units (7 points each) ---------------- */
-  const N = 7;
+  const N = 13;
 
   // Point at fraction u (0 to 1) along a polyline.
   function along01(pts, u) {
@@ -73,11 +73,13 @@
   }
 
   // One turn of yarn around the hook, starting under it, crossing the front, and returning behind.
-  function unitHook(hk, d, grow = 1) {
+  // Each loop is a slightly different size, so they look like soft yarn and not stamped rings.
+  function unitHook(hk, d, grow = 1, rs = 1) {
     const pts = [];
+    const rr = R * rs * (1 + 0.12 * Math.sin(d * 0.37));
     for (let k = 0; k < N; k++) {
-      const [x, y] = toWorld(hk, d + 3 - k, R * Math.cos((k * Math.PI) / 3));
-      pts.push([x, y, k >= 1 && k <= 3 ? 1 : 0]);
+      const [x, y] = toWorld(hk, d + 8 * Math.sin((k * Math.PI) / 6) + 1.5 - k * 0.25, rr * Math.cos((k * Math.PI) / 6));
+      pts.push([x, y, k >= 1 && k <= 6 ? 1 : 0]);
     }
     return grow >= 1 ? pts : pts.map((_, k) => along01(pts, (grow * k) / (N - 1)));
   }
@@ -85,7 +87,7 @@
   function unitLink(c) {
     const [cx, cy, rx, ry] = c;
     return Array.from({ length: N }, (_, k) => {
-      const phi = rad(90 + k * 60);
+      const phi = rad(90 + k * 30);
       return [cx + rx * Math.cos(phi), cy + ry * Math.sin(phi), 0];
     });
   }
@@ -104,7 +106,7 @@
       });
     }
     if (spec.at) return unitAt(spec.at);
-    return unitHook(hk, spec.d, spec.grow === undefined ? 1 : spec.grow);
+    return unitHook(hk, spec.d, spec.grow === undefined ? 1 : spec.grow, spec.rs);
   }
 
   /* ---------------- building the one yarn path ---------------- */
@@ -114,7 +116,7 @@
   const HP = (n, S) => ({ t: 'hp', n, S });
   const FG = (slack = 12) => ({ t: 'finger', slack });
 
-  function build(items, hk) {
+  function build(items, hk, tension = 0.55) {
     const out = [];
     const last = () => out[out.length - 1];
     for (let i = 0; i < items.length; i++) {
@@ -145,6 +147,22 @@
         out.push([FING.x - 11, FING.y + 4, 0]);
         out.push([FING.x - 12, FING.y + 64, 0]);
         out.push([FING.x - 28, FING.y + 180, 0]);
+      }
+    }
+    return sag(out, tension);
+  }
+
+  // Loose yarn droops a little between its points; pulled-tight yarn does not.
+  function sag(pts, tension) {
+    const k = (1 - tension) * 0.24;
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      out.push(pts[i]);
+      if (i < pts.length - 1) {
+        const a = pts[i];
+        const b = pts[i + 1];
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        out.push([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + k * Math.max(0, len - 12), Math.max(a[2], b[2])]);
       }
     }
     return out;
@@ -206,8 +224,9 @@
      ================================================================ */
   const SCENES = {};
   // A pose. Pass the hook, the list of yarn items, and optional timing.
-  const pose = (cap, step, hook, items, o = {}) => ({ cap, step, hook, items, move: o.move === undefined ? 1600 : o.move, hold: o.hold === undefined ? 900 : o.hold, stagger: o.stagger || 0, sh: o.sh });
-  const HOOKS = (a) => a; // (readability only)
+  const pose = (cap, step, hook, items, o = {}) => ({ cap, step, hook, items, move: o.move === undefined ? 1600 : o.move, hold: o.hold === undefined ? 900 : o.hold, stagger: o.stagger || 0, sh: o.sh, tension: o.tension });
+  // A finished stitch is a stack of small flat loops (one per loop worked off), like the post of a real stitch.
+  const LK = (i, lean = 0, x = TX) => ({ link: [x + lean * i, RY - 5 - 11 * i, 11, 5.2] });
 
   // ---------- chain ----------
   SCENES.chain = () => {
@@ -247,7 +266,7 @@
     const p1 = mk(INS, [44, 'p'], null);
     const p2 = mk(INS, [44, 3], null);
     const p3 = mk(H3, [0, 3], S);
-    const p4 = mk(NEXT, [{ at: T }, 36], null);
+    const p4 = mk(NEXT, [LK(1), 36], null);
     return {
       art: { row: true, work: [TX] },
       poses: [
@@ -273,7 +292,7 @@
     const p3 = mk(H4, [26, 6, 'p'], S);
     const p4 = mk(H4, [26, 6, 3], S);
     const p5 = mk(H6, [-14, -34, 3], S);
-    const p6 = mk(NEXT, [{ at: T }, { at: T }, 36], null);
+    const p6 = mk(NEXT, [LK(1), LK(2), 36], null);
     return {
       art: { row: true, work: [TX] },
       poses: [
@@ -302,7 +321,7 @@
     const p4 = mk(H4, [30, 16, 3, 'p'], S);
     const p5 = mk(H4, [42, 28, 14, 3], S);
     const p6 = mk(H6, [-14, -28, -42, 3], S);
-    const p7 = mk(NEXT, [{ at: T }, { at: T }, { at: T }, 36], null);
+    const p7 = mk(NEXT, [LK(1), LK(2), LK(3), 36], null);
     return {
       art: { row: true, work: [TX] },
       poses: [
@@ -334,10 +353,10 @@
     const p4 = mk(H4, [36, 18, 3, 'p', 'p'], S);
     const p5 = mk(H4, [50, 34, 18, 3, 'p'], S);
     const p6 = mk(H6, [50, -6, -22, 3, 'p'], S);
-    const p7 = mk(H6, [50, { at: Tm }, { at: Tm }, 18, 'p'], null);
-    const p8 = mk(H6, [50, { at: Tm }, { at: Tm }, 18, 3], null);
-    const p9 = mk(H9, [-10, { at: Tm }, { at: Tm }, -42, 3], null);
-    const p10 = mk(NEXT, [{ at: T }, { at: T }, { at: T }, { at: T }, 36], null);
+    const p7 = mk(H6, [50, LK(2), LK(3), 18, 'p'], null);
+    const p8 = mk(H6, [50, LK(2), LK(3), 18, 3], null);
+    const p9 = mk(H9, [-10, LK(2), LK(3), -42, 3], null);
+    const p10 = mk(NEXT, [LK(1), LK(2), LK(3), LK(4), 36], null);
     return {
       art: { row: true, work: [TX] },
       poses: [
@@ -370,13 +389,13 @@
     const p3 = mk(H3, [26, 6, 'p', 'p', 'p'], S, null);
     const p4 = mk(H3, [26, 6, 3, 'p', 'p'], S, null);
     const p5 = mk(H5, [-14, -34, 3, 'p', 'p'], S, null);
-    const p6 = mk(READY, [{ at: T1 }, { at: T1 }, 40, 'p', 'p'], null, null);
-    const p7 = mk(INS, [{ at: T1 }, { at: T1 }, 44, 'p', 'p'], null, null);
-    const p8 = mk(INS, [{ at: T1 }, { at: T1 }, 44, 6, 'p'], null, null);
-    const p9 = mk(H3, [{ at: T1 }, { at: T1 }, 26, 6, 'p'], null, S);
-    const p10 = mk(H3, [{ at: T1 }, { at: T1 }, 26, 6, 3], null, S);
-    const p11 = mk(H5, [{ at: T1 }, { at: T1 }, -14, -34, 3], null, S);
-    const p12 = mk(NEXT, [{ at: T1 }, { at: T1 }, { at: T1 }, { at: T2 }, 36], null, [BASE]);
+    const p6 = mk(READY, [LK(1, -4), LK(2, -4), 40, 'p', 'p'], null, null);
+    const p7 = mk(INS, [LK(1, -4), LK(2, -4), 44, 'p', 'p'], null, null);
+    const p8 = mk(INS, [LK(1, -4), LK(2, -4), 44, 6, 'p'], null, null);
+    const p9 = mk(H3, [LK(1, -4), LK(2, -4), 26, 6, 'p'], null, S);
+    const p10 = mk(H3, [LK(1, -4), LK(2, -4), 26, 6, 3], null, S);
+    const p11 = mk(H5, [LK(1, -4), LK(2, -4), -14, -34, 3], null, S);
+    const p12 = mk(NEXT, [LK(1, -4), LK(2, -4), LK(2, -4), LK(2, 4), 36], null, [BASE]);
     return {
       art: { row: true, work: [TX] },
       poses: [
@@ -417,7 +436,7 @@
     const p4 = mk(H4, [62, 6, 'p'], S2);
     const p5 = mk(H4, [62, 20, 3], S2);
     const p6 = mk(H6, [-18, -60, 3], S2);
-    const p7 = mk(NEXT, [{ at: T }, { at: T }, 36], null);
+    const p7 = mk(NEXT, [LK(1, 0, B[0]), LK(2, 0, B[0]), 36], null);
     return {
       art: { row: true, work: [X1, X2] },
       poses: [
@@ -440,11 +459,15 @@
     const circ = (Rr) => [{ arc: [C[0], C[1], Rr, 135, 315] }, { arc: [C[0], C[1], Rr, 315, 495] }];
     const xOf = (Rr) => [C[0] - 0.707 * Rr, C[1] + 0.707 * Rr];
     const bars = (Rr) => {
+      // each single crochet around the ring is a small loop of yarn attached to the ring
       const out = {};
+      const L = Rr > 20 ? 22 : 12;
+      const W = Rr > 20 ? 6.5 : 3.5;
       for (let k = 0; k < 6; k++) {
         const a = rad(-90 + k * 60);
-        const o2 = Rr + (Rr > 20 ? 20 : 14);
-        out['m' + k] = { pts: [[C[0] + Rr * Math.cos(a), C[1] + Rr * Math.sin(a)], [C[0] + ((Rr + o2) / 2) * Math.cos(a), C[1] + ((Rr + o2) / 2) * Math.sin(a)], [C[0] + o2 * Math.cos(a), C[1] + o2 * Math.sin(a)]] };
+        const ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux;
+        const at = (r, s) => [C[0] + r * ux + s * vx, C[1] + r * uy + s * vy];
+        out['m' + k] = { pts: [at(Rr, -1.5), at(Rr + L * 0.45, -W), at(Rr + L, 0), at(Rr + L * 0.45, W), at(Rr, 1.5)] };
       }
       return out;
     };
@@ -502,7 +525,7 @@
     const states = [];
     const delays = [];
     def.poses.forEach((p, i) => {
-      const yarn = build(p.items, p.hook);
+      const yarn = build(p.items, p.hook, p.tension);
       if (states.length && yarn.length !== states[0].yarn.length) console.error('LLAnim ' + key + ': pose ' + i + ' has ' + yarn.length + ' yarn points, expected ' + states[0].yarn.length);
       for (const id in p.sh || {}) cs[id] = { ...(cs[id] || {}), ...p.sh[id] };
       const dl = {};
@@ -637,15 +660,22 @@
     /* ----- the static picture: fabric, left hand, hook, right hand ----- */
     const art = def.art || {};
     if (art.row) {
-      const band = svg('rect', { x: 8, y: RY + 8, width: 344, height: 46, rx: 14, opacity: 0.3 }, gBack);
-      band.style.fill = COLORS.edge;
-      for (const x of XS) {
-        const working = (art.work || []).includes(x);
-        const cy = RY - 2;
-        const top = svg('path', { d: `M${x - 13} ${cy}A13 6 0 0 1 ${x + 13} ${cy}` }, gBack);
-        stroke(top, 'edge', 4);
-        const bot = svg('path', { d: `M${x - 13} ${cy}A13 6 0 0 0 ${x + 13} ${cy}` }, working ? gFront : gBack);
-        stroke(bot, 'mid', 4);
+      // The finished row: each stitch is a "V" with a loop on top. The hook goes in under the loop.
+      const strand = (parent, d) => {
+        const a = svg('path', { d }, parent);
+        stroke(a, 'mid', 7);
+        const b = svg('path', { d }, parent);
+        stroke(b, 'edge', 4.2);
+      };
+      for (let r = 2; r >= 0; r--) {
+        const y0 = RY - 3 + 22 * r;
+        for (const x of XS) {
+          const working = r === 0 && (art.work || []).includes(x);
+          strand(gBack, `M${x - 12} ${y0}C${x - 13} ${y0 + 9} ${x - 6} ${y0 + 17} ${x} ${y0 + 24}`);
+          strand(gBack, `M${x + 12} ${y0}C${x + 13} ${y0 + 9} ${x + 6} ${y0 + 17} ${x} ${y0 + 24}`);
+          strand(gBack, `M${x - 12} ${y0}A12 6 0 0 1 ${x + 12} ${y0}`);
+          strand(working ? gFront : gBack, `M${x - 12} ${y0}A12 6 0 0 0 ${x + 12} ${y0}`);
+        }
       }
     }
     if (art.label) {
@@ -658,9 +688,11 @@
     const shapeEls = {};
     for (const id of def.shapes || []) {
       const g = svg('g', {}, gBack);
+      const pc = svg('path', {}, g);
+      stroke(pc, 'accentDark', 7.6);
       const p = svg('path', {}, g);
-      stroke(p, 'accent', 6);
-      shapeEls[id] = { g, p };
+      stroke(p, 'accent', 4.8);
+      shapeEls[id] = { g, p, pc };
     }
     // left hand: index finger holds the yarn, thumb holds the work
     finger(gHandL, FING.x, FING.y, FING.x, 232, 19);
@@ -682,10 +714,14 @@
     finger(handR, 134, 17, GRIP + 2, 9.5, 11);
     blob(handR, 'M122 -17C122 -26 132 -28 142 -28L170 -28C184 -28 190 -17 190 -5L190 13C190 27 180 30 168 30L138 30C128 30 122 25 122 17Z');
     // the yarn
+    const yBackC = svg('path', {}, gY0);
+    stroke(yBackC, 'accentDark', 7.6);
     const yBack = svg('path', {}, gY0);
     stroke(yBack, 'accent', 4.8);
     const yBackT = svg('path', { 'stroke-dasharray': '1.5 5', opacity: 0.45 }, gY0);
     stroke(yBackT, 'paper', 1.3);
+    const yFrontC = svg('path', {}, gY1);
+    stroke(yFrontC, 'accentDark', 7.6);
     const yFront = svg('path', {}, gY1);
     stroke(yFront, 'accent', 4.8);
     const yFrontT = svg('path', { 'stroke-dasharray': '1.5 5', opacity: 0.45 }, gY1);
@@ -697,6 +733,8 @@
       hookG.setAttribute('transform', tf);
       handR.setAttribute('transform', tf);
       const c = curve(S.yarn);
+      yBackC.setAttribute('d', c.back);
+      yFrontC.setAttribute('d', c.front);
       yBack.setAttribute('d', c.back);
       yBackT.setAttribute('d', c.back);
       yFront.setAttribute('d', c.front);
@@ -704,7 +742,9 @@
       for (const id in shapeEls) {
         const s = S.sh[id];
         if (!s) continue;
-        shapeEls[id].p.setAttribute('d', curve(s.pts.map((q) => [q[0], q[1], 0])).back);
+        const dd = curve(s.pts.map((q) => [q[0], q[1], 0])).back;
+        shapeEls[id].p.setAttribute('d', dd);
+        shapeEls[id].pc.setAttribute('d', dd);
         shapeEls[id].g.style.opacity = s.o;
       }
     }

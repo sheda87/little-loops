@@ -118,7 +118,7 @@ Photos are shrunk to about 1200 pixels on the long side so they stay small.
 - **Animated diagrams**: each scene in `SCENES` in `diagrams.js` is a list of poses (where the hook and each loop of the one continuous yarn are at each step). The hands use the `--skin` and `--skin-edge` colors at the top of `styles.css`. The player blends between poses. To add one, copy a scene, give it the same id as the guide in `GUIDES`, and the player appears automatically. Keep the number of poses equal to the guide's steps if you want the step highlighting to line up.
 - **Abbreviations**: edit the `ABBR` and `USUK` lists in `app.js`.
 - **Welcome messages and cheers**: edit the `HOME_LINES`, `CHEERS` and `FINISH_CHEERS` lists in `app.js`.
-- **After you change any file**: if the app doesn't show the change on the phone, close it fully and open it again. If it is still old, change the version in `CACHE = 'little-loops-v6'` in `sw.js` to `v7` (then `v8`, and so on) and push again.
+- **After you change any file**: if the app doesn't show the change on the phone, close it fully and open it again. If it is still old, change the version in `CACHE = 'little-loops-v7'` in `sw.js` to `v8` (then `v9`, and so on) and push again.
 
 Make small changes and test after each one. Commit every time something works (`git add .` then `git commit -m "what you changed"`), so you can always roll back.
 
